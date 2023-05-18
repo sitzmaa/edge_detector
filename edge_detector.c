@@ -87,6 +87,8 @@ PPMPixel *apply_filters(PPMPixel *image, unsigned long w, unsigned long h, doubl
  */
 void write_image(PPMPixel *image, char *filename, unsigned long int width, unsigned long int height)
 {
+    //FILE* writer = fopen("laplacian1.ppm", "w+");
+    //fwrite()
 
     
 }
@@ -108,11 +110,48 @@ void write_image(PPMPixel *image, char *filename, unsigned long int width, unsig
  Return: pointer to PPMPixel that has the pixel data of the input image (filename).The pixel data is stored in scanline order from left to right (up to bottom) in 3-byte chunks (r g b values for each pixel) encoded as binary numbers.
  */
 PPMPixel *read_image(const char *filename, unsigned long int *width, unsigned long int *height)
-{
+{   
+    // open file and set buffer
+    FILE* image;
+    int color_max;
+    char* buff = malloc(sizeof(char)*4);
+    if ((image = fopen(filename, "r")) == NULL) {
+        perror("File could not be opened");
+        exit(-1);
+    }
+    // Determine that file is of proper type P6
+    fscanf(image, "%2s\n", buff);
+    printf("%s\n", buff);
+    if (strcmp(buff, "P6") != 0) {
+        perror("Incorrect File Format");
+        exit(-1);
+    }
+    // Skip comments
+    while (fgetc(image) == '#') {
+        while (fgetc(image) != '\n');
+    }
+    fseek(image, ftell(image)-1, SEEK_SET);
+    // Scan for image data
+    fscanf(image, "%lu %lu\n%d", width, height, &color_max);
+    // Compare file color maximum to out color maximum
+    if (color_max > RGB_COMPONENT_COLOR) {
+        perror("Invlaid color maximum");
+        exit(-1);
+    }
+    printf("%lu %lu %d\n", *width, *height, color_max);
 
     PPMPixel *img;
-    
-
+    // Determine the number of pixels in the bitstring
+    long start = ftell(image);
+    fseek(image, 0 ,SEEK_END);
+    long end = ftell(image);
+    fseek(image, start, SEEK_SET);
+    long length = (end - start) / sizeof(PPMPixel);
+    // Allocate our string of pixels
+    img = calloc(length, sizeof(PPMPixel));
+    // read pixels into struct
+    fread(img, sizeof(PPMPixel), length, image);
+    fclose(image);
     return img;
 }
 
@@ -135,6 +174,13 @@ void *manage_image_file(void *args){
  */
 int main(int argc, char *argv[])
 {
+    if (argc<2) {
+        perror("No images to read. \nUsage: ./edge_detector filename[s]");
+        exit(-1);
+    }
+    unsigned long int width;
+    unsigned long int height;
+    read_image(argv[1], &width,&height);
    
 
     
