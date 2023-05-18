@@ -87,9 +87,14 @@ PPMPixel *apply_filters(PPMPixel *image, unsigned long w, unsigned long h, doubl
  */
 void write_image(PPMPixel *image, char *filename, unsigned long int width, unsigned long int height)
 {
-    //FILE* writer = fopen("laplacian1.ppm", "w+");
-    //fwrite()
-
+    FILE* writer = fopen("laplacian1.ppm", "w+");
+    char string[50];
+    sprintf(string, "P6\n%lu %lu\n225", width, height);
+    fwrite(string, 1, strlen(string), writer);
+    
+    fwrite(image, width*height, sizeof(PPMPixel), writer);
+    free(image);
+    fclose(writer);
     
 }
 
@@ -180,8 +185,8 @@ int main(int argc, char *argv[])
     }
     unsigned long int width;
     unsigned long int height;
-    read_image(argv[1], &width,&height);
-   
+    PPMPixel* image = read_image(argv[1], &width,&height);
+    write_image(image, "", width, height);
 
     
     return 0;
