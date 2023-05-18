@@ -32,6 +32,8 @@ struct file_name_args {
     char output_file_name[20];  //will take the form laplaciani.ppm, e.g., laplacian1.ppm
 };
 
+// helper function
+void initialize_args(struct file_name_args args, char* file_name, int i);
 
 /*The total_elapsed_time is the total time taken by all threads 
 to compute the edge detection of all input images .
@@ -169,7 +171,8 @@ PPMPixel *read_image(const char *filename, unsigned long int *width, unsigned lo
 
 */
 void *manage_image_file(void *args){
- 
+    struct file_name_args *file_args = (struct file_name_args *)args;
+    printf("input: %s\n output: %s\n", file_args->input_file_name, file_args->output_file_name);
     
 }
 /*The driver of the program. Check for the correct number of arguments. If wrong print the message: "Usage ./a.out filename[s]"
@@ -179,16 +182,39 @@ void *manage_image_file(void *args){
  */
 int main(int argc, char *argv[])
 {
-    if (argc<2) {
+     if (argc<2) {
         perror("No images to read. \nUsage: ./edge_detector filename[s]");
         exit(-1);
     }
+    /* test code
     unsigned long int width;
     unsigned long int height;
     PPMPixel* image = read_image(argv[1], &width,&height);
-    write_image(image, "", width, height);
+    write_image(image, "", width, height); */
 
+    pthread_t file_threads[argc];
+    char iteration_char;
+    struct file_name_args file_args[argc];
+    for (int i = 0; i < argc-1; i++) {
+
+        initialize_args(file_args[i], argv[i+1], i);
+        if(pthread_create(&file_threads[i], NULL, manage_image_file, (void*)&argv[i+1]) != 0)
+            perror("unable to create thread");
+    }
+    for(int i = 0; i < argc-1; i++) {
+        pthread_join(file_threads[i], NULL);
+    }
     
     return 0;
 }
 
+// Helper function
+void initialize_args(struct file_name_args args, char* file_name, int i) {
+        char output[20];
+        char iteration_char = i;
+        args.input_file_name = file_name;
+        strcpy(output, "laplacian");
+        strcat(output, &iteration_char);
+        strcat(output, ".txt");
+        strcpy(args.output_file_name, output);
+}
