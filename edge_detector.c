@@ -33,7 +33,7 @@ struct file_name_args {
 };
 
 // helper function
-void initialize_args(struct file_name_args args, char* file_name, int i);
+void initialize_args(struct file_name_args *args, char* file_name, int i);
 
 /*The total_elapsed_time is the total time taken by all threads 
 to compute the edge detection of all input images .
@@ -172,7 +172,11 @@ PPMPixel *read_image(const char *filename, unsigned long int *width, unsigned lo
 */
 void *manage_image_file(void *args){
     struct file_name_args *file_args = (struct file_name_args *)args;
-    printf("input: %s\n output: %s\n", file_args->input_file_name, file_args->output_file_name);
+    char* output = file_args->output_file_name;
+    printf("input: %s\n output: %s\n", file_args->input_file_name, output);
+    unsigned long width;
+    unsigned long height;
+    PPMPixel* image = read_image(file_args->input_file_name, &width, &height);
     
 }
 /*The driver of the program. Check for the correct number of arguments. If wrong print the message: "Usage ./a.out filename[s]"
@@ -196,9 +200,8 @@ int main(int argc, char *argv[])
     char iteration_char;
     struct file_name_args file_args[argc];
     for (int i = 0; i < argc-1; i++) {
-
-        initialize_args(file_args[i], argv[i+1], i);
-        if(pthread_create(&file_threads[i], NULL, manage_image_file, (void*)&argv[i+1]) != 0)
+        initialize_args(&file_args[i], argv[i+1], i+1);
+        if(pthread_create(&file_threads[i], NULL, manage_image_file, (void*)&file_args[i]) != 0)
             perror("unable to create thread");
     }
     for(int i = 0; i < argc-1; i++) {
@@ -209,12 +212,11 @@ int main(int argc, char *argv[])
 }
 
 // Helper function
-void initialize_args(struct file_name_args args, char* file_name, int i) {
-        char output[20];
-        char iteration_char = i;
-        args.input_file_name = file_name;
-        strcpy(output, "laplacian");
+void initialize_args(struct file_name_args *args, char* file_name, int i) {
+        char output[20] = "laplacian";
+        char iteration_char = i+'0';
+        args->input_file_name = file_name;
         strcat(output, &iteration_char);
-        strcat(output, ".txt");
-        strcpy(args.output_file_name, output);
+        strcat(output, ".ppm");
+        strcpy(args->output_file_name, output);
 }
