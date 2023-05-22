@@ -92,8 +92,7 @@ void write_image(PPMPixel *image, char *filename, unsigned long int width, unsig
     FILE* writer = fopen(filename, "w+");
     char string[50];
     sprintf(string, "P6\n%lu %lu\n255\n", width, height);
-    fwrite(string, 1, strlen(string), writer);
-    
+    fwrite(string, 1, strlen(string), writer); 
     fwrite(image, width*height, sizeof(PPMPixel), writer);
     free(image);
     fclose(writer);
@@ -150,11 +149,8 @@ PPMPixel *read_image(const char *filename, unsigned long int *width, unsigned lo
     PPMPixel *img;
     // Determine the number of pixels in the bitstring
     long start = ftell(image);
-    fseek(image, 0 ,SEEK_END);
-    long end = ftell(image);
     fseek(image, start+1, SEEK_SET);
-    long length = (end - start) / sizeof(PPMPixel);
-    length = (*height * *width) + 1;
+    long length = (*height * *width);
     // Allocate our string of pixels
     img = calloc(length, sizeof(PPMPixel));
     // read pixels into struct
