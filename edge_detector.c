@@ -89,9 +89,9 @@ PPMPixel *apply_filters(PPMPixel *image, unsigned long w, unsigned long h, doubl
  */
 void write_image(PPMPixel *image, char *filename, unsigned long int width, unsigned long int height)
 {
-    FILE* writer = fopen("laplacian1.ppm", "w+");
+    FILE* writer = fopen(filename, "w+");
     char string[50];
-    sprintf(string, "P6\n%lu %lu\n225", width, height);
+    sprintf(string, "P6\n%lu %lu\n255\n", width, height);
     fwrite(string, 1, strlen(string), writer);
     
     fwrite(image, width*height, sizeof(PPMPixel), writer);
@@ -152,12 +152,14 @@ PPMPixel *read_image(const char *filename, unsigned long int *width, unsigned lo
     long start = ftell(image);
     fseek(image, 0 ,SEEK_END);
     long end = ftell(image);
-    fseek(image, start, SEEK_SET);
+    fseek(image, start+1, SEEK_SET);
     long length = (end - start) / sizeof(PPMPixel);
+    length = (*height * *width) + 1;
     // Allocate our string of pixels
     img = calloc(length, sizeof(PPMPixel));
     // read pixels into struct
     fread(img, sizeof(PPMPixel), length, image);
+    free(buff);
     fclose(image);
     return img;
 }
@@ -177,7 +179,9 @@ void *manage_image_file(void *args){
     unsigned long width;
     unsigned long height;
     PPMPixel* image = read_image(file_args->input_file_name, &width, &height);
-    
+    write_image(image, file_args->output_file_name, width, height);
+    printf("thread finished\n");
+    return NULL;
 }
 /*The driver of the program. Check for the correct number of arguments. If wrong print the message: "Usage ./a.out filename[s]"
   It shall accept n filenames as arguments, separated by whitespace, e.g., ./a.out file1.ppm file2.ppm    file3.ppm
