@@ -50,7 +50,9 @@ double total_elapsed_time = 0;
  */
 void *compute_laplacian_threadfn(void *params)
 {
-    
+    // cast params
+    struct parameter *parameters = (struct parameter *)params;
+    PPMPixel* result = parameters->result;
     int laplacian[FILTER_WIDTH][FILTER_HEIGHT] =
     {
         {-1, -1, -1},
@@ -59,7 +61,14 @@ void *compute_laplacian_threadfn(void *params)
     };
 
     int red, green, blue;
-     
+    for (int i = 0; i < parameters->size; i++) {
+        int x_coordinate = (iteratorImageWidth - FILTER_WIDTH / 2 + iteratorFilterWidth + parameters->w) % parameters->w;
+        int y_coordinate = (iteratorImageHeight - FILTER_HEIGHT / 2 + iteratorFilterHeight + parameters->h) % parameters->h;
+        red+= parameters->image[y_coordinate * parameters->w + x_coordinate].r * laplacian[iteratorFilterHeight][iteratorFilterWidth];
+        green+= parameters->image[y_coordinate * parameters->w + x_coordinate].g * laplacian[iteratorFilterHeight][iteratorFilterWidth];
+        blue+= parameters->image[y_coordinate * parameters->w + x_coordinate].b * laplacian[iteratorFilterHeight][iteratorFilterWidth];
+
+    }
       
       
         
@@ -74,6 +83,30 @@ void *compute_laplacian_threadfn(void *params)
 PPMPixel *apply_filters(PPMPixel *image, unsigned long w, unsigned long h, double *elapsedTime) {
 
     PPMPixel *result;
+    // Allocate space for result
+    result = calloc((h*w), sizeof(PPMPixel));
+    // Copy image over to result
+    memcpy(result, image, (h*w)*sizeof(PPMPixel));
+    
+    // Set up parameters
+    struct parameter params[LAPLACIAN_THREADS];
+    unsigned long int size = (w*h)/LAPLACIAN_THREADS;
+    pthread_t filter_threads[LAPLACIAN_THREADS];
+    // Populate params and initialize threads
+    for (int i = 0; i < LAPLACIAN_THREADS; i++) {
+        params[i].image = image;
+        params[i].result = result;
+        params[i].h = h;
+        params[i].w = w;
+        params[i].size = size;
+        params[i].start = size*i;
+        if(pthread_create(&filter_threads[i], NULL, compute_laplacian_threadfn, (void*)&params[i]) != 0)
+            perror("unable to create thread");
+    }
+    // Join threads
+    for(int i = 0; i < LAPLACIAN_THREADS; i++) {
+        pthread_join(filter_threads[i], NULL);
+    }
    
 
 
@@ -89,10 +122,13 @@ PPMPixel *apply_filters(PPMPixel *image, unsigned long w, unsigned long h, doubl
  */
 void write_image(PPMPixel *image, char *filename, unsigned long int width, unsigned long int height)
 {
+    // create output file with appropriate naem
     FILE* writer = fopen(filename, "w+");
     char string[50];
-    sprintf(string, "P6\n%lu %lu\n255\n", width, height);
+    // create file header
+    sprintf(string, "P6\n%lu %lu\n%d\n", width, height, RGB_COMPONENT_COLOR);
     fwrite(string, 1, strlen(string), writer); 
+    // write image
     fwrite(image, width*height, sizeof(PPMPixel), writer);
     free(image);
     fclose(writer);
@@ -169,12 +205,21 @@ PPMPixel *read_image(const char *filename, unsigned long int *width, unsigned lo
 
 */
 void *manage_image_file(void *args){
+    // cast args
     struct file_name_args *file_args = (struct file_name_args *)args;
+
     char* output = file_args->output_file_name;
     printf("input: %s\n output: %s\n", file_args->input_file_name, output);
+    // initialize widht and height
     unsigned long width;
     unsigned long height;
+    double elapsed_time = 0;
+
+    // read image
     PPMPixel* image = read_image(file_args->input_file_name, &width, &height);
+    // filter image
+    PPMPixel* result = apply_filters(image, width, height, &elapsed_time);
+    // write image
     write_image(image, file_args->output_file_name, width, height);
     printf("thread finished\n");
     return NULL;
@@ -196,8 +241,8 @@ int main(int argc, char *argv[])
     PPMPixel* image = read_image(argv[1], &width,&height);
     write_image(image, "", width, height); */
 
+    // Initialize threads for each image
     pthread_t file_threads[argc];
-    char iteration_char;
     struct file_name_args file_args[argc];
     for (int i = 0; i < argc-1; i++) {
         initialize_args(&file_args[i], argv[i+1], i+1);
@@ -212,6 +257,7 @@ int main(int argc, char *argv[])
 }
 
 // Helper function
+// Create appropriate output filename and populate params for threads
 void initialize_args(struct file_name_args *args, char* file_name, int i) {
         char output[20] = "laplacian";
         char iteration_char = i+'0';
