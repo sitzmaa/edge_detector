@@ -13,6 +13,8 @@
 
 #define RGB_COMPONENT_COLOR 255
 
+pthread_mutex_t mutex1 = PTHREAD_MUTEX_INITIALIZER;
+
 typedef struct {
       unsigned char r, g, b;
 } PPMPixel;
@@ -53,20 +55,36 @@ void *compute_laplacian_threadfn(void *params)
     // cast params
     struct parameter *parameters = (struct parameter *)params;
     PPMPixel* result = parameters->result;
+    PPMPixel* image = parameters->image;
     int laplacian[FILTER_WIDTH][FILTER_HEIGHT] =
     {
         {-1, -1, -1},
         {-1,  8, -1},
         {-1, -1, -1}
     };
-
+    unsigned long w = parameters->w;
+    unsigned long h = parameters->h;
+    unsigned long size = parameters->size;
+    unsigned long start = parameters->start;
     int red, green, blue;
     for (int i = 0; i < parameters->size; i++) {
-        int x_coordinate = (iteratorImageWidth - FILTER_WIDTH / 2 + iteratorFilterWidth + parameters->w) % parameters->w;
-        int y_coordinate = (iteratorImageHeight - FILTER_HEIGHT / 2 + iteratorFilterHeight + parameters->h) % parameters->h;
-        red+= parameters->image[y_coordinate * parameters->w + x_coordinate].r * laplacian[iteratorFilterHeight][iteratorFilterWidth];
-        green+= parameters->image[y_coordinate * parameters->w + x_coordinate].g * laplacian[iteratorFilterHeight][iteratorFilterWidth];
-        blue+= parameters->image[y_coordinate * parameters->w + x_coordinate].b * laplacian[iteratorFilterHeight][iteratorFilterWidth];
+        int k = 0;
+        for (int j = 0; k < FILTER_WIDTH; j++) {
+            int x_coordinate = (/*iteratorImageWidth*/(w%(i+start)) - FILTER_WIDTH / 2 + /*iteratorFilterWidth*/j + w) % w;
+            int y_coordinate = (/*iteratorImageHeight*/(w/(i+start)) - FILTER_HEIGHT / 2 + /*iteratorFilterHeight*/k + h) % h;
+            red+= image[y_coordinate * w + x_coordinate].r * laplacian[j][k];
+            green+= image[y_coordinate * w + x_coordinate].g * laplacian[j][k];
+            blue+= image[y_coordinate * w + x_coordinate].b * laplacian[j][k];
+            if (j == 2) {
+                j = 0;
+                k++;
+            }
+        }
+        pthread_mutex_lock(&mutex1);
+        result[i+start].r =red;
+        result[i+start].g = green;
+        result[i+start].b = blue;
+        pthread_mutex_unlock(&mutex1);
 
     }
       
@@ -220,7 +238,7 @@ void *manage_image_file(void *args){
     // filter image
     PPMPixel* result = apply_filters(image, width, height, &elapsed_time);
     // write image
-    write_image(image, file_args->output_file_name, width, height);
+    write_image(result, file_args->output_file_name, width, height);
     printf("thread finished\n");
     return NULL;
 }
