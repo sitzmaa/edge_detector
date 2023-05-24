@@ -5,7 +5,7 @@
 #include <pthread.h>
 #include <string.h>
 
-#define LAPLACIAN_THREADS 4     //change the number of threads as you run your concurrency experiment
+#define LAPLACIAN_THREADS 4    //change the number of threads as you run your concurrency experiment
 
 /* Laplacian filter is 3 by 3 */
 #define FILTER_WIDTH 3       
@@ -67,25 +67,27 @@ void *compute_laplacian_threadfn(void *params)
     unsigned long size = parameters->size;
     unsigned long start = parameters->start;
     int red, green, blue;
-    for (int i = 0; i < parameters->size; i++) {
-        int k = 0;
-        for (int j = 0; k < FILTER_WIDTH; j++) {
-            int x_coordinate = (/*iteratorImageWidth*/(w%(i+start)) - FILTER_WIDTH / 2 + /*iteratorFilterWidth*/j + w) % w;
-            int y_coordinate = (/*iteratorImageHeight*/(w/(i+start)) - FILTER_HEIGHT / 2 + /*iteratorFilterHeight*/k + h) % h;
-            red+= image[y_coordinate * w + x_coordinate].r * laplacian[j][k];
-            green+= image[y_coordinate * w + x_coordinate].g * laplacian[j][k];
-            blue+= image[y_coordinate * w + x_coordinate].b * laplacian[j][k];
-            if (j == 2) {
-                j = 0;
-                k++;
+    for (int i = 0; i < size; i++) {
+        int iteratorImageWidth = (i+start)%w;
+        int long iteratorImageHeight = (i+start)/w;
+        for (int j = 0; j < FILTER_WIDTH; j++) {
+            for(int k = 0; k < FILTER_HEIGHT; k++) {
+                int x_coordinate = (iteratorImageWidth - (FILTER_WIDTH / 2) + /*iteratorFilterWidth*/j + w)%w;
+                int y_coordinate = (iteratorImageHeight - (FILTER_HEIGHT / 2) + /*iteratorFilterHeight*/k + h)%h;
+                red+= image[(y_coordinate * w) + x_coordinate].r * laplacian[k][j];
+                green+= image[(y_coordinate * w) + x_coordinate].g * laplacian[k][j];
+                blue+= image[(y_coordinate * w) + x_coordinate].b * laplacian[k][j];
+
             }
         }
         pthread_mutex_lock(&mutex1);
-        result[i+start].r =red;
-        result[i+start].g = green;
-        result[i+start].b = blue;
+        result[iteratorImageHeight * w + iteratorImageWidth].r =red;
+        result[iteratorImageHeight * w + iteratorImageWidth].g = green;
+        result[iteratorImageHeight * w + iteratorImageWidth].b = blue;
         pthread_mutex_unlock(&mutex1);
-
+        red = 0;
+        blue = 0;
+        green = 0;
     }
       
       
@@ -239,6 +241,7 @@ void *manage_image_file(void *args){
     PPMPixel* result = apply_filters(image, width, height, &elapsed_time);
     // write image
     write_image(result, file_args->output_file_name, width, height);
+    free(image);
     printf("thread finished\n");
     return NULL;
 }
