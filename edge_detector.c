@@ -5,13 +5,15 @@
 #include <pthread.h>
 #include <string.h>
 
-#define LAPLACIAN_THREADS 4    //change the number of threads as you run your concurrency experiment
+#define LAPLACIAN_THREADS 400    //change the number of threads as you run your concurrency experiment
 
 /* Laplacian filter is 3 by 3 */
 #define FILTER_WIDTH 3       
 #define FILTER_HEIGHT 3      
 
 #define RGB_COMPONENT_COLOR 255
+
+#define MICRO_SECOND 1000000
 
 pthread_mutex_t mutex1 = PTHREAD_MUTEX_INITIALIZER;
 
@@ -110,6 +112,11 @@ void *compute_laplacian_threadfn(void *params)
  */
 PPMPixel *apply_filters(PPMPixel *image, unsigned long w, unsigned long h, double *elapsedTime) {
 
+    struct timeval time;
+    gettimeofday(&time, NULL);
+    double micro = time.tv_usec;
+    double start_time = (time.tv_sec+(micro/MICRO_SECOND));
+
     PPMPixel *result;
     // Allocate space for result
     result = calloc((h*w), sizeof(PPMPixel));
@@ -135,7 +142,10 @@ PPMPixel *apply_filters(PPMPixel *image, unsigned long w, unsigned long h, doubl
     for(int i = 0; i < LAPLACIAN_THREADS; i++) {
         pthread_join(filter_threads[i], NULL);
     }
-   
+    gettimeofday(&time, NULL);
+    micro = time.tv_usec;
+    double end_time = (time.tv_sec+(micro/MICRO_SECOND));
+    *elapsedTime = end_time-start_time;
 
 
     return result;
@@ -191,7 +201,6 @@ PPMPixel *read_image(const char *filename, unsigned long int *width, unsigned lo
     }
     // Determine that file is of proper type P6
     fscanf(image, "%2s\n", buff);
-    printf("%s\n", buff);
     if (strcmp(buff, "P6") != 0) {
         perror("Incorrect File Format");
         exit(-1);
@@ -208,7 +217,6 @@ PPMPixel *read_image(const char *filename, unsigned long int *width, unsigned lo
         perror("Invlaid color maximum");
         exit(-1);
     }
-    printf("%lu %lu %d\n", *width, *height, color_max);
 
     PPMPixel *img;
     // Determine the number of pixels in the bitstring
@@ -235,22 +243,20 @@ PPMPixel *read_image(const char *filename, unsigned long int *width, unsigned lo
 void *manage_image_file(void *args){
     // cast args
     struct file_name_args *file_args = (struct file_name_args *)args;
-
     char* output = file_args->output_file_name;
-    printf("input: %s\n output: %s\n", file_args->input_file_name, output);
     // initialize widht and height
     unsigned long width;
     unsigned long height;
     double elapsed_time = 0;
-
     // read image
     PPMPixel* image = read_image(file_args->input_file_name, &width, &height);
     // filter image
     PPMPixel* result = apply_filters(image, width, height, &elapsed_time);
     // write image
     write_image(result, file_args->output_file_name, width, height);
+    //printf("Image time: %f\n", elapsed_time);
     free(image);
-    printf("thread finished\n");
+    total_elapsed_time += elapsed_time;
     return NULL;
 }
 /*The driver of the program. Check for the correct number of arguments. If wrong print the message: "Usage ./a.out filename[s]"
@@ -281,17 +287,19 @@ int main(int argc, char *argv[])
     for(int i = 0; i < argc-1; i++) {
         pthread_join(file_threads[i], NULL);
     }
-    
+    printf("Total time: %f\n", total_elapsed_time);
     return 0;
 }
 
 // Helper functions
 // Create appropriate output filename and populate params for threads
 void initialize_args(struct file_name_args *args, char* file_name, int i) {
-        char output[20] = "laplacian";
-        char iteration_char = i+'0';
         args->input_file_name = file_name;
-        strcat(output, &iteration_char);
+        char output[20] = "laplacian\0";
+        char* iteration_char = malloc(10);
+        sprintf(iteration_char, "%d", i);
+        strncat(output, iteration_char, strlen(iteration_char));
+        free(iteration_char);
         strcat(output, ".ppm");
         strcpy(args->output_file_name, output);
 }
@@ -306,3 +314,4 @@ int truncate_value(int value, int max) {
     }
     return value;
 }
+
