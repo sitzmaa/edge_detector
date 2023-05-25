@@ -6,12 +6,15 @@
 #include <string.h>
 
 #define LAPLACIAN_THREADS 400    //change the number of threads as you run your concurrency experiment
+#define LAPLACIAN_THREADS 400    //change the number of threads as you run your concurrency experiment
 
 /* Laplacian filter is 3 by 3 */
 #define FILTER_WIDTH 3       
 #define FILTER_HEIGHT 3      
 
 #define RGB_COMPONENT_COLOR 255
+
+#define MICRO_SECOND 1000000
 
 #define MICRO_SECOND 1000000
 
@@ -37,7 +40,9 @@ struct file_name_args {
 };
 
 // helper function prototypes
+// helper function prototypes
 void initialize_args(struct file_name_args *args, char* file_name, int i);
+int truncate_value(int value, int max);
 int truncate_value(int value, int max);
 
 /*The total_elapsed_time is the total time taken by all threads 
@@ -73,8 +78,14 @@ void *compute_laplacian_threadfn(void *params)
     for (int i = 0; i < size; i++) {
         int iteratorImageWidth = (i+start)%w; // Width position of current pixel
         int long iteratorImageHeight = ((i+start)/w); // Height position of current pixel
+        int iteratorImageWidth = (i+start)%w; // Width position of current pixel
+        int long iteratorImageHeight = ((i+start)/w); // Height position of current pixel
         for (int j = 0; j < FILTER_WIDTH; j++) {
             for(int k = 0; k < FILTER_HEIGHT; k++) {
+                // Get the width and heightof pixel in relation to current pixel and current position in filter
+                int x_coordinate = (iteratorImageWidth - (FILTER_WIDTH / 2) + j + w)%w;
+                int y_coordinate = (iteratorImageHeight - (FILTER_HEIGHT / 2) + k + h)%h;
+                // Apply filter to respective pixel for RGB
                 // Get the width and heightof pixel in relation to current pixel and current position in filter
                 int x_coordinate = (iteratorImageWidth - (FILTER_WIDTH / 2) + j + w)%w;
                 int y_coordinate = (iteratorImageHeight - (FILTER_HEIGHT / 2) + k + h)%h;
@@ -85,6 +96,11 @@ void *compute_laplacian_threadfn(void *params)
 
             }
         }
+        // truncate values to 0 <= value <= 255
+        red = truncate_value(red, RGB_COMPONENT_COLOR);
+        green = truncate_value(green, RGB_COMPONENT_COLOR);
+        blue = truncate_value(blue, RGB_COMPONENT_COLOR);
+        // Lock output while thread writes new values
         // truncate values to 0 <= value <= 255
         red = truncate_value(red, RGB_COMPONENT_COLOR);
         green = truncate_value(green, RGB_COMPONENT_COLOR);
@@ -117,6 +133,11 @@ PPMPixel *apply_filters(PPMPixel *image, unsigned long w, unsigned long h, doubl
     double micro = time.tv_usec;
     double start_time = (time.tv_sec+(micro/MICRO_SECOND));
 
+    struct timeval time;
+    gettimeofday(&time, NULL);
+    double micro = time.tv_usec;
+    double start_time = (time.tv_sec+(micro/MICRO_SECOND));
+
     PPMPixel *result;
     // Allocate space for result
     result = calloc((h*w), sizeof(PPMPixel));
@@ -142,6 +163,11 @@ PPMPixel *apply_filters(PPMPixel *image, unsigned long w, unsigned long h, doubl
     for(int i = 0; i < LAPLACIAN_THREADS; i++) {
         pthread_join(filter_threads[i], NULL);
     }
+    gettimeofday(&time, NULL);
+    micro = time.tv_usec;
+    double end_time = (time.tv_sec+(micro/MICRO_SECOND));
+    *elapsedTime = end_time-start_time;
+
     gettimeofday(&time, NULL);
     micro = time.tv_usec;
     double end_time = (time.tv_sec+(micro/MICRO_SECOND));
@@ -255,7 +281,9 @@ void *manage_image_file(void *args){
     // write image
     write_image(result, file_args->output_file_name, width, height);
     //printf("Image time: %f\n", elapsed_time);
+    //printf("Image time: %f\n", elapsed_time);
     free(image);
+    total_elapsed_time += elapsed_time;
     total_elapsed_time += elapsed_time;
     return NULL;
 }
@@ -288,13 +316,20 @@ int main(int argc, char *argv[])
         pthread_join(file_threads[i], NULL);
     }
     printf("Total time: %f\n", total_elapsed_time);
+    printf("Total time: %f\n", total_elapsed_time);
     return 0;
 }
 
 // Helper functions
+// Helper functions
 // Create appropriate output filename and populate params for threads
 void initialize_args(struct file_name_args *args, char* file_name, int i) {
         args->input_file_name = file_name;
+        char output[20] = "laplacian\0";
+        char* iteration_char = malloc(10);
+        sprintf(iteration_char, "%d", i);
+        strncat(output, iteration_char, strlen(iteration_char));
+        free(iteration_char);
         char output[20] = "laplacian\0";
         char* iteration_char = malloc(10);
         sprintf(iteration_char, "%d", i);
@@ -314,4 +349,3 @@ int truncate_value(int value, int max) {
     }
     return value;
 }
-
