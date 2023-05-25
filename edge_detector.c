@@ -34,8 +34,9 @@ struct file_name_args {
     char output_file_name[20];  //will take the form laplaciani.ppm, e.g., laplacian1.ppm
 };
 
-// helper function
+// helper function prototypes
 void initialize_args(struct file_name_args *args, char* file_name, int i);
+int truncate_value(int value, int max);
 
 /*The total_elapsed_time is the total time taken by all threads 
 to compute the edge detection of all input images .
@@ -68,18 +69,25 @@ void *compute_laplacian_threadfn(void *params)
     unsigned long start = parameters->start;
     int red, green, blue;
     for (int i = 0; i < size; i++) {
-        int iteratorImageWidth = (i+start)%w;
-        int long iteratorImageHeight = (i+start)/w;
+        int iteratorImageWidth = (i+start)%w; // Width position of current pixel
+        int long iteratorImageHeight = ((i+start)/w); // Height position of current pixel
         for (int j = 0; j < FILTER_WIDTH; j++) {
             for(int k = 0; k < FILTER_HEIGHT; k++) {
-                int x_coordinate = (iteratorImageWidth - (FILTER_WIDTH / 2) + /*iteratorFilterWidth*/j + w)%w;
-                int y_coordinate = (iteratorImageHeight - (FILTER_HEIGHT / 2) + /*iteratorFilterHeight*/k + h)%h;
+                // Get the width and heightof pixel in relation to current pixel and current position in filter
+                int x_coordinate = (iteratorImageWidth - (FILTER_WIDTH / 2) + j + w)%w;
+                int y_coordinate = (iteratorImageHeight - (FILTER_HEIGHT / 2) + k + h)%h;
+                // Apply filter to respective pixel for RGB
                 red+= image[(y_coordinate * w) + x_coordinate].r * laplacian[k][j];
                 green+= image[(y_coordinate * w) + x_coordinate].g * laplacian[k][j];
                 blue+= image[(y_coordinate * w) + x_coordinate].b * laplacian[k][j];
 
             }
         }
+        // truncate values to 0 <= value <= 255
+        red = truncate_value(red, RGB_COMPONENT_COLOR);
+        green = truncate_value(green, RGB_COMPONENT_COLOR);
+        blue = truncate_value(blue, RGB_COMPONENT_COLOR);
+        // Lock output while thread writes new values
         pthread_mutex_lock(&mutex1);
         result[iteratorImageHeight * w + iteratorImageWidth].r =red;
         result[iteratorImageHeight * w + iteratorImageWidth].g = green;
@@ -277,7 +285,7 @@ int main(int argc, char *argv[])
     return 0;
 }
 
-// Helper function
+// Helper functions
 // Create appropriate output filename and populate params for threads
 void initialize_args(struct file_name_args *args, char* file_name, int i) {
         char output[20] = "laplacian";
@@ -286,4 +294,15 @@ void initialize_args(struct file_name_args *args, char* file_name, int i) {
         strcat(output, &iteration_char);
         strcat(output, ".ppm");
         strcpy(args->output_file_name, output);
+}
+
+// Truncate values to between 0 and max color value
+// If outside of bounds, return the bound exceded
+int truncate_value(int value, int max) {
+    if (value > max) {
+        return max;
+    } else if (value < 0) {
+        return 0;
+    }
+    return value;
 }
