@@ -16,6 +16,7 @@
 #define MICRO_SECOND 1000000
 
 pthread_mutex_t mutex1 = PTHREAD_MUTEX_INITIALIZER;
+pthread_mutex_t time_lock = PTHREAD_MUTEX_INITIALIZER;
 
 typedef struct {
       unsigned char r, g, b;
@@ -256,7 +257,9 @@ void *manage_image_file(void *args){
     write_image(result, file_args->output_file_name, width, height);
     //printf("Image time: %f\n", elapsed_time);
     free(image);
+    pthread_mutex_lock(&time_lock);
     total_elapsed_time += elapsed_time;
+    pthread_mutex_unlock(&time_lock);
     return NULL;
 }
 /*The driver of the program. Check for the correct number of arguments. If wrong print the message: "Usage ./a.out filename[s]"
@@ -295,12 +298,8 @@ int main(int argc, char *argv[])
 // Create appropriate output filename and populate params for threads
 void initialize_args(struct file_name_args *args, char* file_name, int i) {
         args->input_file_name = file_name;
-        char output[20] = "laplacian\0";
-        char* iteration_char = malloc(10);
-        sprintf(iteration_char, "%d", i);
-        strncat(output, iteration_char, strlen(iteration_char));
-        free(iteration_char);
-        strcat(output, ".ppm");
+        char output[20] = "";
+        sprintf(output, "laplacian%d.ppm", i);
         strcpy(args->output_file_name, output);
 }
 
