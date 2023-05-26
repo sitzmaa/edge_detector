@@ -5,7 +5,7 @@
 #include <pthread.h>
 #include <string.h>
 
-#define LAPLACIAN_THREADS 400    //change the number of threads as you run your concurrency experiment
+#define LAPLACIAN_THREADS 450    //change the number of threads as you run your concurrency experiment
 
 /* Laplacian filter is 3 by 3 */
 #define FILTER_WIDTH 3       
@@ -114,13 +114,20 @@ void *compute_laplacian_threadfn(void *params)
 PPMPixel *apply_filters(PPMPixel *image, unsigned long w, unsigned long h, double *elapsedTime) {
 
     struct timeval time;
-    gettimeofday(&time, NULL);
+    if (gettimeofday(&time, NULL) != 0) {
+        perror("get time error\n");
+        exit(-1);
+    }
     double micro = time.tv_usec;
     double start_time = (time.tv_sec+(micro/MICRO_SECOND));
 
     PPMPixel *result;
     // Allocate space for result
     result = calloc((h*w), sizeof(PPMPixel));
+    if (result == NULL) {
+        perror("calloc error");
+        exit(-1);
+    }
     // Copy image over to result
     memcpy(result, image, (h*w)*sizeof(PPMPixel));
     
@@ -136,19 +143,22 @@ PPMPixel *apply_filters(PPMPixel *image, unsigned long w, unsigned long h, doubl
         params[i].w = w;
         params[i].size = size;
         params[i].start = size*i;
-        if(pthread_create(&filter_threads[i], NULL, compute_laplacian_threadfn, (void*)&params[i]) != 0)
-            perror("unable to create thread");
+        if(pthread_create(&filter_threads[i], NULL, compute_laplacian_threadfn, (void*)&params[i]) != 0){
+            perror("unable to create thread"); 
+            exit(-1);
+        }
     }
     // Join threads
     for(int i = 0; i < LAPLACIAN_THREADS; i++) {
         pthread_join(filter_threads[i], NULL);
     }
-    gettimeofday(&time, NULL);
+    if (gettimeofday(&time, NULL) != 0) {
+        perror("get time error\n");
+        exit(-1);
+    }
     micro = time.tv_usec;
     double end_time = (time.tv_sec+(micro/MICRO_SECOND));
     *elapsedTime = end_time-start_time;
-
-
     return result;
 }
 
@@ -162,13 +172,23 @@ PPMPixel *apply_filters(PPMPixel *image, unsigned long w, unsigned long h, doubl
 void write_image(PPMPixel *image, char *filename, unsigned long int width, unsigned long int height)
 {
     // create output file with appropriate naem
-    FILE* writer = fopen(filename, "w+");
+    FILE* writer;
+    if((writer = fopen(filename, "w+")) == NULL) {
+        perror("could not open file\n");
+        exit(-1);
+    }
     char string[50];
     // create file header
     sprintf(string, "P6\n%lu %lu\n%d\n", width, height, RGB_COMPONENT_COLOR);
-    fwrite(string, 1, strlen(string), writer); 
+    if(fwrite(string, 1, strlen(string), writer) < strlen(string)) {
+        perror("Write Error");
+        exit(-1);
+    } 
     // write image
-    fwrite(image, width*height, sizeof(PPMPixel), writer);
+    if(fwrite(image, width*height, sizeof(PPMPixel), writer) < sizeof(PPMPixel)){
+        perror("Write Error");
+        exit(-1);
+    }
     free(image);
     fclose(writer);
     
@@ -196,6 +216,10 @@ PPMPixel *read_image(const char *filename, unsigned long int *width, unsigned lo
     FILE* image;
     int color_max;
     char* buff = malloc(sizeof(char)*4);
+    if (buff == NULL) {
+        perror("Malloc Error\n");
+        exit(-1);
+    }
     if ((image = fopen(filename, "r")) == NULL) {
         perror("File could not be opened");
         exit(-1);
@@ -227,7 +251,10 @@ PPMPixel *read_image(const char *filename, unsigned long int *width, unsigned lo
     // Allocate our string of pixels
     img = calloc(length, sizeof(PPMPixel));
     // read pixels into struct
-    fread(img, sizeof(PPMPixel), length, image);
+    if (fread(img, sizeof(PPMPixel), length, image) < length) {
+        perror("Read Error");
+        exit(-1);
+    }
     free(buff);
     fclose(image);
     return img;
@@ -273,19 +300,16 @@ int main(int argc, char *argv[])
         perror("No images to read. \nUsage: ./edge_detector filename[s]");
         exit(-1);
     }
-    /* test code
-    unsigned long int width;
-    unsigned long int height;
-    PPMPixel* image = read_image(argv[1], &width,&height);
-    write_image(image, "", width, height); */
 
     // Initialize threads for each image
     pthread_t file_threads[argc];
     struct file_name_args file_args[argc];
     for (int i = 0; i < argc-1; i++) {
         initialize_args(&file_args[i], argv[i+1], i+1);
-        if(pthread_create(&file_threads[i], NULL, manage_image_file, (void*)&file_args[i]) != 0)
+        if(pthread_create(&file_threads[i], NULL, manage_image_file, (void*)&file_args[i]) != 0) {
             perror("unable to create thread");
+            exit(-1);
+        }
     }
     for(int i = 0; i < argc-1; i++) {
         pthread_join(file_threads[i], NULL);
