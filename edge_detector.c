@@ -13,10 +13,9 @@
 
 #define RGB_COMPONENT_COLOR 255
 
-#define MICRO_SECOND 1000000
+#define MICRO_SECOND 1000000 // Define number of microseconds in a second
 
-#define MICRO_SECOND 1000000
-
+// Mutex Locks for write to result and update total_elapsed_time respectively
 pthread_mutex_t mutex1 = PTHREAD_MUTEX_INITIALIZER;
 pthread_mutex_t time_lock = PTHREAD_MUTEX_INITIALIZER;
 
@@ -40,9 +39,7 @@ struct file_name_args {
 };
 
 // helper function prototypes
-// helper function prototypes
 void initialize_args(struct file_name_args *args, char* file_name, int i);
-int truncate_value(int value, int max);
 int truncate_value(int value, int max);
 
 /*The total_elapsed_time is the total time taken by all threads 
@@ -70,6 +67,8 @@ void *compute_laplacian_threadfn(void *params)
         {-1,  8, -1},
         {-1, -1, -1}
     };
+    
+    // Read params from struct
     unsigned long w = parameters->w;
     unsigned long h = parameters->h;
     unsigned long size = parameters->size;
@@ -78,14 +77,8 @@ void *compute_laplacian_threadfn(void *params)
     for (int i = 0; i < size; i++) {
         int iteratorImageWidth = (i+start)%w; // Width position of current pixel
         int long iteratorImageHeight = ((i+start)/w); // Height position of current pixel
-        int iteratorImageWidth = (i+start)%w; // Width position of current pixel
-        int long iteratorImageHeight = ((i+start)/w); // Height position of current pixel
         for (int j = 0; j < FILTER_WIDTH; j++) {
             for(int k = 0; k < FILTER_HEIGHT; k++) {
-                // Get the width and heightof pixel in relation to current pixel and current position in filter
-                int x_coordinate = (iteratorImageWidth - (FILTER_WIDTH / 2) + j + w)%w;
-                int y_coordinate = (iteratorImageHeight - (FILTER_HEIGHT / 2) + k + h)%h;
-                // Apply filter to respective pixel for RGB
                 // Get the width and heightof pixel in relation to current pixel and current position in filter
                 int x_coordinate = (iteratorImageWidth - (FILTER_WIDTH / 2) + j + w)%w;
                 int y_coordinate = (iteratorImageHeight - (FILTER_HEIGHT / 2) + k + h)%h;
@@ -101,19 +94,14 @@ void *compute_laplacian_threadfn(void *params)
         green = truncate_value(green, RGB_COMPONENT_COLOR);
         blue = truncate_value(blue, RGB_COMPONENT_COLOR);
         // Lock output while thread writes new values
-        // truncate values to 0 <= value <= 255
-        red = truncate_value(red, RGB_COMPONENT_COLOR);
-        green = truncate_value(green, RGB_COMPONENT_COLOR);
-        blue = truncate_value(blue, RGB_COMPONENT_COLOR);
-        // Lock output while thread writes new values
         pthread_mutex_lock(&mutex1);
         result[iteratorImageHeight * w + iteratorImageWidth].r =red;
         result[iteratorImageHeight * w + iteratorImageWidth].g = green;
         result[iteratorImageHeight * w + iteratorImageWidth].b = blue;
         pthread_mutex_unlock(&mutex1);
         red = 0;
-        blue = 0;
         green = 0;
+        blue = 0;
     }
       
       
@@ -127,14 +115,6 @@ void *compute_laplacian_threadfn(void *params)
  Return: result (filtered image)
  */
 PPMPixel *apply_filters(PPMPixel *image, unsigned long w, unsigned long h, double *elapsedTime) {
-
-    struct timeval time;
-    if (gettimeofday(&time, NULL) != 0) {
-        perror("get time error\n");
-        exit(-1);
-    }
-    double micro = time.tv_usec;
-    double start_time = (time.tv_sec+(micro/MICRO_SECOND));
 
     struct timeval time;
     if (gettimeofday(&time, NULL) != 0) {
@@ -261,7 +241,7 @@ PPMPixel *read_image(const char *filename, unsigned long int *width, unsigned lo
     // Scan for image data
     fscanf(image, "%lu %lu\n%d", width, height, &color_max);
     // Compare file color maximum to out color maximum
-    if (color_max > RGB_COMPONENT_COLOR) {
+    if (color_max != RGB_COMPONENT_COLOR) {
         perror("Invlaid color maximum");
         exit(-1);
     }
@@ -273,6 +253,10 @@ PPMPixel *read_image(const char *filename, unsigned long int *width, unsigned lo
     long length = (*height * *width);
     // Allocate our string of pixels
     img = calloc(length, sizeof(PPMPixel));
+    if (img == NULL) {
+        perror("Calloc Error");
+        exit(-1);
+    }
     // read pixels into struct
     if (fread(img, sizeof(PPMPixel), length, image) < length) {
         perror("Read Error");
@@ -305,10 +289,9 @@ void *manage_image_file(void *args){
     PPMPixel* result = apply_filters(image, width, height, &elapsed_time);
     // write image
     write_image(result, file_args->output_file_name, width, height);
-    //printf("Image time: %f\n", elapsed_time);
-    //printf("Image time: %f\n", elapsed_time);
     free(image);
     pthread_mutex_lock(&time_lock);
+    // Update total time
     total_elapsed_time += elapsed_time;
     pthread_mutex_unlock(&time_lock);
     return NULL;
@@ -321,7 +304,7 @@ void *manage_image_file(void *args){
 int main(int argc, char *argv[])
 {
      if (argc<2) {
-        perror("No images to read. \nUsage: ./edge_detector filename[s]");
+        printf("No images to read. \nUsage: ./edge_detector filename[s]\n");
         exit(-1);
     }
 
@@ -339,11 +322,9 @@ int main(int argc, char *argv[])
         pthread_join(file_threads[i], NULL);
     }
     printf("Total time: %f\n", total_elapsed_time);
-    printf("Total time: %f\n", total_elapsed_time);
     return 0;
 }
 
-// Helper functions
 // Helper functions
 // Create appropriate output filename and populate params for threads
 void initialize_args(struct file_name_args *args, char* file_name, int i) {
