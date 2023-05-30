@@ -93,12 +93,9 @@ void *compute_laplacian_threadfn(void *params)
         red = truncate_value(red, RGB_COMPONENT_COLOR);
         green = truncate_value(green, RGB_COMPONENT_COLOR);
         blue = truncate_value(blue, RGB_COMPONENT_COLOR);
-        // Lock output while thread writes new values
-        //pthread_mutex_lock(&mutex1);
         result[iteratorImageHeight * w + iteratorImageWidth].r =red;
         result[iteratorImageHeight * w + iteratorImageWidth].g = green;
         result[iteratorImageHeight * w + iteratorImageWidth].b = blue;
-        //pthread_mutex_unlock(&mutex1);
         red = 0;
         green = 0;
         blue = 0;
