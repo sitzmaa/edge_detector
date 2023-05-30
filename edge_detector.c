@@ -16,7 +16,7 @@
 #define MICRO_SECOND 1000000 // Define number of microseconds in a second
 
 // Mutex Locks for write to result and update total_elapsed_time respectively
-pthread_mutex_t mutex1 = PTHREAD_MUTEX_INITIALIZER;
+
 pthread_mutex_t time_lock = PTHREAD_MUTEX_INITIALIZER;
 
 typedef struct {
