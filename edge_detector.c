@@ -5,7 +5,7 @@
 #include <pthread.h>
 #include <string.h>
 
-#define LAPLACIAN_THREADS 450    //change the number of threads as you run your concurrency experiment
+#define LAPLACIAN_THREADS 9    //change the number of threads as you run your concurrency experiment
 
 /* Laplacian filter is 3 by 3 */
 #define FILTER_WIDTH 3       
@@ -94,11 +94,11 @@ void *compute_laplacian_threadfn(void *params)
         green = truncate_value(green, RGB_COMPONENT_COLOR);
         blue = truncate_value(blue, RGB_COMPONENT_COLOR);
         // Lock output while thread writes new values
-        pthread_mutex_lock(&mutex1);
+        //pthread_mutex_lock(&mutex1);
         result[iteratorImageHeight * w + iteratorImageWidth].r =red;
         result[iteratorImageHeight * w + iteratorImageWidth].g = green;
         result[iteratorImageHeight * w + iteratorImageWidth].b = blue;
-        pthread_mutex_unlock(&mutex1);
+        //pthread_mutex_unlock(&mutex1);
         red = 0;
         green = 0;
         blue = 0;
