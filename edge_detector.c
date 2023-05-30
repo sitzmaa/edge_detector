@@ -15,7 +15,7 @@
 
 #define MICRO_SECOND 1000000 // Define number of microseconds in a second
 
-// Mutex Locks for write to result and update total_elapsed_time respectively
+// Mutex Lock for update total_elapsed_time respectively
 
 pthread_mutex_t time_lock = PTHREAD_MUTEX_INITIALIZER;
 
@@ -171,7 +171,7 @@ PPMPixel *apply_filters(PPMPixel *image, unsigned long w, unsigned long h, doubl
  */
 void write_image(PPMPixel *image, char *filename, unsigned long int width, unsigned long int height)
 {
-    // create output file with appropriate naem
+    // create output file with appropriate name
     FILE* writer;
     if((writer = fopen(filename, "w+")) == NULL) {
         perror("could not open file\n");
